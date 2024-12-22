@@ -1,0 +1,67 @@
+{
+    "rules": [
+        {
+            "preferences": {
+                "music_preferences": [
+                    "Commercial",
+                    "Hip-Hop / Rap",
+                    "Reggaeton",
+                    "Big Room",
+                    "EDM",
+                    "Bass Music",
+                    "Afro House",
+                    "House",
+                    "Tech House",
+                    "Techno"
+                ],
+                "budget": "£60-100+",
+                "vibe": ["Exclusive", "High-end"],
+                "gender": ["Man", "Other"]
+            },
+            "clubs": [
+                "The Box",
+                "Maddox",
+                "Tape",
+                "The Cuckoo Club",
+                "Mistress Of Mayfair",
+                "Cirque",
+                "Selene",
+                "Tabu",
+                "Maroto",
+                "Dear Darling",
+                "Sumosan Twiga",
+                "B",
+                "Scotch",
+                "Beat",
+                "Bohemia",
+                "Maddox (Green Room)",
+                "Koko",
+                "Reign",
+                "Lìo",
+                "Hovarda Soho",
+                "Hovarda Canary Wharf",
+                "Luna",
+                "Luxx",
+                "Tonteria",
+                "Raffles",
+                "Stereo",
+                "The Houseparty",
+                "Maggie’s Club",
+                "Ministry Of Sound",
+                "Fabric",
+                "Xoyo",
+                "E1",
+                "Egg London",
+                "The Roundhouse",
+                "Drumsheds",
+                "Phonox",
+                "Eight Embankment",
+                "Studio 338",
+                "Scala",
+                "Lightbox",
+                "Corsica Studios",
+                "Bar Rumba"
+            ]
+        }
+    ]
+}
