@@ -13,9 +13,9 @@ async function testLangChain() {
             temperature: 0.7,
         });
 
-        const response = await chat.invoke([{ role: "user", content: "tell me the top 3 highest scoring player in the UCL champions league" }]);
+        const response = await chat.invoke([{ role: "user", content: "tell me the 5 best soccer players ever in order"}]);
 
-        console.log("LangChain Test Successful! Response:");
+        console.log("LangChain Test Successful! Response:"); 
         console.log(response);
     } catch (error) {
         console.error("Error during LangChain test:", error.message);
