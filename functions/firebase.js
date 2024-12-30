@@ -10,7 +10,7 @@ if (!admin.apps.length) {
 
 const db = admin.database();
 
-// Function to save chat messages
+// Function to save chat messages from usr
 async function saveChatMessage(phoneNumber, role, content) {
   const messageRef = db.ref(`users/${phoneNumber}/chat_history`);
   const newMessageRef = messageRef.push();
