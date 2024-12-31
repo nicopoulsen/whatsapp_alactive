@@ -2,6 +2,7 @@ const functions = require('firebase-functions');
 const { saveChatMessage, getChatHistory, savePreferences, getPreferences } = require('./firebase');
 const { extractPreferencesFromMessage, mapBudgetToRange } = require('./gpt');
 const { getMatchingClubs } = require('./clubs');
+const { extractEventQuery, getEventsForClubs } = require('./events'); // Added event-related functions
 require('dotenv').config();
 
 exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
@@ -15,6 +16,33 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
 
     // Save user message in chat history
     await saveChatMessage(senderNumber, "user", userMessage);
+
+    // Check if the user is asking for events
+    const eventQuery = await extractEventQuery(process.env.OPENAI_API_KEY, userMessage);
+
+    if (eventQuery.wants_events) {
+      // If the user wants events, get matching clubs and their events
+      const recommendedClubs = await getMatchingClubs(preferences); // Use preferences for recommended clubs
+      const events = await getEventsForClubs(recommendedClubs, eventQuery.date);
+
+      // Generate a response for events
+      let responseMessage = "Here are the events for the requested date:\n\n";
+      for (const event of events) {
+        if (event.tickets_link) {
+          responseMessage += `${event.tickets_link} - ${event.club} - ${event.date}\n`;
+        } else {
+          responseMessage += `${event.club} - No events on this day!\n`;
+        }
+      }
+
+      // Save assistant's response and return it to the user
+      await saveChatMessage(senderNumber, "assistant", responseMessage);
+      return res.status(200).send(`
+        <Response>
+          <Message>${responseMessage}</Message>
+        </Response>
+      `);
+    }
 
     // Extract preferences from the current message
     const extractedPreferences = await extractPreferencesFromMessage(process.env.OPENAI_API_KEY, userMessage);
@@ -78,6 +106,7 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
     responseMessage = clubs.length
       ? `Here are some clubs for you: ${clubs.join(", ")}`
       : "Sorry, no matching clubs found.";
+    responseMessage += `\nIf you would like real-time events for these clubs, say something like "Recommend me events for the 27th of December."`;
 
     // Save assistant's response in chat history and return it to the user
     await saveChatMessage(senderNumber, "assistant", responseMessage);
