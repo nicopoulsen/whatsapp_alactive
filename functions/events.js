@@ -1,5 +1,3 @@
-// events.js
-
 const supabase = require('./supabaseClient');
 const { initChatModel } = require("langchain/chat_models/universal");
 
@@ -47,7 +45,15 @@ async function getEventsForClubs(clubs, date) {
   for (const club of clubs) {
     const { data, error } = await supabase
       .from('events')
-      .select('tickets_link, date')
+      .select(`
+        venue_name,
+        name,
+        date,
+        tickets_link,
+        min_age,
+        starting_time,
+        closing_time
+      `)
       .eq('venue_name', club)
       .eq('date', date);
 
@@ -58,7 +64,16 @@ async function getEventsForClubs(clubs, date) {
     }
 
     if (data && data.length > 0) {
-      events.push({ club, tickets_link: data[0].tickets_link, date: data[0].date });
+      data.forEach((event) => {
+        events.push({
+          venue_name: event.venue_name || "N/A",
+          event_name: event.name || "N/A",
+          date: event.date || "N/A",
+          tickets_link: event.tickets_link || "N/A",
+          min_age: event.min_age || "N/A",
+          time: `${event.starting_time || "N/A"} - ${event.closing_time || "N/A"}`,
+        });
+      });
     } else {
       events.push({ club, tickets_link: null, date: null }); // No events found
     }

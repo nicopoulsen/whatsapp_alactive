@@ -25,13 +25,18 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
       const recommendedClubs = await getMatchingClubs(preferences); // Use preferences for recommended clubs
       const events = await getEventsForClubs(recommendedClubs, eventQuery.date);
 
-      // Generate a response for events
       let responseMessage = "Here are the events for the requested date:\n\n";
       for (const event of events) {
         if (event.tickets_link) {
-          responseMessage += `${event.tickets_link} - ${event.club} - ${event.date}\n`;
+          responseMessage += `
+${event.event_name || "Event"}
+📍 ${event.venue_name || "Venue Unknown"}
+📅 ${event.date || "N/A"}
+⏰ Time: ${event.time || "N/A"}
+🔞 Minimum Age: ${event.min_age || "N/A"}
+🎟 Tickets: [Get Tickets](${event.tickets_link})\n\n`;
         } else {
-          responseMessage += `${event.club} - No events on this day!\n`;
+          responseMessage += `${event.club || "Unknown Club"} - No events on this day!\n\n`;
         }
       }
 
