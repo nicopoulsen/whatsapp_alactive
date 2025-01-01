@@ -2,18 +2,23 @@
     "rules": [
         {
             "preferences": {
-                "music_preferences": [
-                    "Commercial",
-                    "Hip-Hop / Rap",
-                    "Reggaeton",
-                    "Big Room",
-                    "EDM",
-                    "Bass Music",
-                    "Afro House",
-                    "House",
-                    "Tech House",
-                    "Techno"
-                ],
+                "music_preferences": {
+                    "group_a": [
+                        "Commercial",
+                        "Hip-Hop / Rap",
+                        "Reggaeton",
+                        "Big Room",
+                        "EDM",
+                        "Bass Music"
+                    ],
+                    "group_b": [
+                        "Afro House",
+                        "House",
+                        "Tech House",
+                        "Techno"
+                    ],
+                    "match_mode": true
+                },
                 "budget": "£60-100",
                 "vibe": ["Exclusive", "High-end"],
                 "gender": ["Man", "Other"]
@@ -47,6 +52,66 @@
                 "Stereo",
                 "The Houseparty",
                 "Maggie’s Club",
+                "Ministry Of Sound",
+                "Fabric",
+                "Xoyo",
+                "E1",
+                "Egg London",
+                "The Roundhouse",
+                "Drumsheds",
+                "Phonox",
+                "Eight Embankment",
+                "Studio 338",
+                "Scala",
+                "Lightbox",
+                "Corsica Studios",
+                "Bar Rumba"
+            ]
+        },
+        {
+            "preferences": {
+                "music_preferences": [
+                    "Commercial",
+                    "Hip-Hop / Rap",
+                    "Reggaeton",
+                    "Big Room",
+                    "EDM",
+                    "Bass Music"
+                ],
+                "budget": "£60-100",
+                "vibe": ["Exclusive", "High-end"],
+                "gender": ["Man", "Other"],
+                "match_mode": false
+            },
+            "clubs": [
+                "The Box",
+                "Tape",
+                "Maddox",
+                "The Cuckoo Club",
+                "Selene",
+                "Cirque",
+                "Dear Darling",
+                "Tabu",
+                "Sumosan Twiga",
+                "Reign",
+                "Luxx",
+                "Tonteria",
+                "B",
+                "Bohemia",
+                "Luna",
+                "Scotch",
+                "Lìo",
+                "Koko",
+                "Maddox (Green Room)",
+                "Mistress Of Mayfair",
+                "Maroto",
+                "Hovarda Soho",
+                "Hovarda Canary Wharf",
+                "Beat",
+                "Stereo",
+                "Raffles",
+                "Maggie’s Club",
+                "The Houseparty",
                 "Ministry Of Sound",
                 "Fabric",
                 "Xoyo",
