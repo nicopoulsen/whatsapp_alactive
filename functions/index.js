@@ -10,47 +10,111 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
     const userMessage = req.body.Body.trim();
     const senderNumber = req.body.From;
 
+    console.log("Received user message:", userMessage);
+
     // Retrieve chat history and existing preferences
-    let chatHistory = await getChatHistory(senderNumber) || [];
-    let preferences = await getPreferences(senderNumber) || {}; // Ensure existing preferences are loaded
+    let chatHistory, preferences;
+    try {
+      chatHistory = await getChatHistory(senderNumber) || [];
+      preferences = await getPreferences(senderNumber) || {};
+    } catch (error) {
+      console.error("Error retrieving chat history or preferences:", error.message);
+      const fallbackResponse = "I'm having trouble accessing your preferences. Please try again later.";
+      await saveChatMessage(senderNumber, "assistant", fallbackResponse);
+      return res.status(500).send(`
+        <Response>
+          <Message>${fallbackResponse}</Message>
+        </Response>
+      `);
+    }
 
     // Save user message in chat history
-    await saveChatMessage(senderNumber, "user", userMessage);
+    try {
+      await saveChatMessage(senderNumber, "user", userMessage);
+    } catch (error) {
+      console.error("Error saving user message:", error.message);
+    }
 
     // Check if the user is asking for events
-    const eventQuery = await extractEventQuery(process.env.OPENAI_API_KEY, userMessage);
+    let eventQuery;
+    try {
+      eventQuery = await extractEventQuery(process.env.OPENAI_API_KEY, userMessage);
+      console.log("Event query:", eventQuery);
+    } catch (error) {
+      console.error("Error extracting event query:", error.message);
+    }
 
-    if (eventQuery.wants_events) {
-      // If the user wants events, get matching clubs and their events
-      const recommendedClubs = await getMatchingClubs(preferences); // Use preferences for recommended clubs
-      const events = await getEventsForClubs(recommendedClubs, eventQuery.date);
+    if (eventQuery && eventQuery.wants_events) {
+      try {
+        // Check if preferences are complete before processing events
+        if (!preferences.gender || !preferences.music_preferences.length || !preferences.budget || !preferences.vibe.length) {
+          const fallbackResponse = "Please complete your preferences before requesting event recommendations.";
+          await saveChatMessage(senderNumber, "assistant", fallbackResponse);
+          return res.status(200).send(`
+            <Response>
+              <Message>${fallbackResponse}</Message>
+            </Response>
+          `);
+        }
 
-      let responseMessage = "Here are the events for the requested date:\n\n";
-      for (const event of events) {
-        if (event.tickets_link) {
-          responseMessage += `
+        // Fetch and process events
+        const recommendedClubs = await getMatchingClubs(preferences);
+
+        if (!Array.isArray(recommendedClubs) || recommendedClubs.length === 0) {
+          throw new Error("No clubs found based on the preferences.");
+        }
+
+        const events = await getEventsForClubs(recommendedClubs, eventQuery.date);
+
+        let responseMessage = "Here are the events for the requested date:\n\n";
+        for (const event of events) {
+          if (event.tickets_link) {
+            responseMessage += `
 ${event.event_name || "Event"}
 📍 ${event.venue_name || "Venue Unknown"}
 📅 ${event.date || "N/A"}
 ⏰ Time: ${event.time || "N/A"}
 🔞 Minimum Age: ${event.min_age || "N/A"}
 🎟 Tickets: [Get Tickets](${event.tickets_link})\n\n`;
-        } else {
-          responseMessage += `${event.club || "Unknown Club"} - No events on this day!\n\n`;
+          } else {
+            responseMessage += `${event.venue_name || "Unknown Club"} - No events on this day!\n\n`;
+          }
         }
-      }
 
-      // Save assistant's response and return it to the user
-      await saveChatMessage(senderNumber, "assistant", responseMessage);
-      return res.status(200).send(`
-        <Response>
-          <Message>${responseMessage}</Message>
-        </Response>
-      `);
+        // Save assistant's response and return it to the user
+        await saveChatMessage(senderNumber, "assistant", responseMessage);
+        return res.status(200).send(`
+          <Response>
+            <Message>${responseMessage}</Message>
+          </Response>
+        `);
+      } catch (error) {
+        console.error("Error processing event request:", error.message);
+        const fallbackResponse = "I couldn't fetch events at the moment. Please try again later.";
+        await saveChatMessage(senderNumber, "assistant", fallbackResponse);
+        return res.status(500).send(`
+          <Response>
+            <Message>${fallbackResponse}</Message>
+          </Response>
+        `);
+      }
     }
 
     // Extract preferences from the current message
-    const extractedPreferences = await extractPreferencesFromMessage(process.env.OPENAI_API_KEY, userMessage);
+    let extractedPreferences;
+    try {
+      extractedPreferences = await extractPreferencesFromMessage(process.env.OPENAI_API_KEY, userMessage);
+      console.log("Extracted preferences:", extractedPreferences);
+    } catch (error) {
+      console.error("Error extracting preferences:", error.message);
+      const fallbackResponse = "I couldn't understand your preferences. Can you rephrase?";
+      await saveChatMessage(senderNumber, "assistant", fallbackResponse);
+      return res.status(500).send(`
+        <Response>
+          <Message>${fallbackResponse}</Message>
+        </Response>
+      `);
+    }
 
     // Normalize budget (map numbers like 80 to predefined ranges)
     if (extractedPreferences.budget) {
@@ -59,18 +123,23 @@ ${event.event_name || "Event"}
 
     // Validate and merge preferences with existing ones
     const updatedPreferences = {
-      gender: extractedPreferences.gender || preferences.gender || "", // Preserve valid gender
+      gender: extractedPreferences.gender || preferences.gender || "",
       music_preferences: extractedPreferences.music_preferences.length > 0
         ? extractedPreferences.music_preferences
-        : preferences.music_preferences || [], // Preserve valid music preferences
-      budget: extractedPreferences.budget || preferences.budget || "", // Preserve valid budget
+        : preferences.music_preferences || [],
+      budget: extractedPreferences.budget || preferences.budget || "",
       vibe: extractedPreferences.vibe.length > 0
         ? extractedPreferences.vibe
-        : preferences.vibe || [], // Preserve valid vibe
+        : preferences.vibe || [],
     };
 
-    // Save the updated preferences back to the database
-    await savePreferences(senderNumber, updatedPreferences);
+    try {
+      // Save the updated preferences back to the database
+      await savePreferences(senderNumber, updatedPreferences);
+      console.log("Updated preferences saved:", updatedPreferences);
+    } catch (error) {
+      console.error("Error saving preferences:", error.message);
+    }
 
     // Identify truly missing preferences
     const missingFields = [];
@@ -85,8 +154,8 @@ ${event.event_name || "Event"}
     // Acknowledge updates if something changed
     const changedFields = Object.keys(extractedPreferences).filter(
       (key) =>
-        extractedPreferences[key] && // Ensure the value is not empty
-        extractedPreferences[key] !== preferences[key] // Check if the value has actually changed
+        extractedPreferences[key] &&
+        extractedPreferences[key] !== preferences[key]
     );
 
     if (changedFields.length > 0) {
@@ -107,22 +176,33 @@ ${event.event_name || "Event"}
     }
 
     // If all preferences are collected, fetch matching clubs
-    const clubs = getMatchingClubs(updatedPreferences);
-    responseMessage = clubs.length
-      ? `Here are some clubs for you: ${clubs.join(", ")}`
-      : "Sorry, no matching clubs found.";
-    responseMessage += `\nIf you would like real-time events for these clubs, say something like "Recommend me events for the 27th of December."`;
+    try {
+      const clubs = getMatchingClubs(updatedPreferences);
+      responseMessage = clubs.length
+        ? `Here are some clubs for you: ${clubs.join(", ")}`
+        : "Sorry, no matching clubs found.";
+      responseMessage += `\nIf you would like real-time events for these clubs, say something like "Recommend me events for the 27th of December."`;
 
-    // Save assistant's response in chat history and return it to the user
-    await saveChatMessage(senderNumber, "assistant", responseMessage);
+      // Save assistant's response in chat history and return it to the user
+      await saveChatMessage(senderNumber, "assistant", responseMessage);
 
-    res.status(200).send(`
-      <Response>
-        <Message>${responseMessage}</Message>
-      </Response>
-    `);
+      res.status(200).send(`
+        <Response>
+          <Message>${responseMessage}</Message>
+        </Response>
+      `);
+    } catch (error) {
+      console.error("Error fetching clubs:", error.message);
+      const fallbackResponse = "I couldn't fetch clubs at the moment. Please try again later.";
+      await saveChatMessage(senderNumber, "assistant", fallbackResponse);
+      return res.status(500).send(`
+        <Response>
+          <Message>${fallbackResponse}</Message>
+        </Response>
+      `);
+    }
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Critical error in webhook:", error.message);
     res.status(500).send(`
       <Response>
         <Message>Something went wrong. Please try again later.</Message>
