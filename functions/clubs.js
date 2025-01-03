@@ -30,7 +30,7 @@ function getMatchingClubs(preferences) {
     });
 
     if (matchingRule) {
-        return matchingRule.clubs.slice(0, 5); // Return top 5 clubs
+        return matchingRule.clubs; 
     }
 
     return [];

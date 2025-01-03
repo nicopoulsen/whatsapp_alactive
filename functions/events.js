@@ -59,31 +59,25 @@ async function getEventsForClubs(clubs, date) {
 
     if (error) {
       console.error(`Error fetching events for ${club}:`, error.message);
-      events.push({ venue_name: club, tickets_link: null }); // Add error-handling fallback
-      continue;
+      continue;  // Skip this club if there's an error fetching events
     }
 
-    // Check if there are events with non-null `tickets_link`
+    // Only push events that have a non-null `tickets_link`
     const validEvents = data.filter((event) => event.tickets_link !== null);
 
-    if (validEvents.length > 0) {
-      validEvents.forEach((event) => {
-        events.push({
-          venue_name: event.venue_name || club, // Fallback to the club name from the input list
-          event_name: event.name || "N/A",
-          date: event.date || "N/A",
-          tickets_link: event.tickets_link,
-          min_age: event.min_age || "N/A",
-          time: `${event.starting_time || "N/A"} - ${event.closing_time || "N/A"}`,
-        });
+    validEvents.forEach((event) => {
+      events.push({
+        venue_name: event.venue_name || club, // Fallback to the club name from the input list
+        event_name: event.name || "N/A",
+        date: event.date || "N/A",
+        tickets_link: event.tickets_link,
+        min_age: event.min_age || "N/A",
+        time: `${event.starting_time || "N/A"} - ${event.closing_time || "N/A"}`,
       });
-    } else {
-      // If no valid events with `tickets_link`, mark as "No events on this day!"
-      events.push({ venue_name: club, tickets_link: null });
-    }
+    });
   }
 
-  return events;
+  return events;  // Returns only clubs that have events with valid tickets_link
 }
 
 module.exports = { extractEventQuery, getEventsForClubs };
