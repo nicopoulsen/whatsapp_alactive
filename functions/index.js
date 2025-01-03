@@ -2,8 +2,40 @@ const functions = require('firebase-functions');
 const { saveChatMessage, getChatHistory, savePreferences, getPreferences } = require('./firebase');
 const { extractPreferencesFromMessage, mapBudgetToRange } = require('./gpt');
 const { getMatchingClubs } = require('./clubs');
-const { extractEventQuery, getEventsForClubs } = require('./events'); // Added event-related functions
+const { extractEventQuery, getEventsForClubs } = require('./events');
 require('dotenv').config();
+
+// Store the index for each user
+let userClubIndexes = {}; // { senderNumber: currentClubIndex }
+
+async function outputClubsInBatches(senderNumber, preferences) {
+  const clubs = getMatchingClubs(preferences);  // This gets the full list of matching clubs
+  
+  // Get the current index for the user
+  let currentClubIndex = userClubIndexes[senderNumber] || 0;
+  
+  // Slice to get the current batch of 5 clubs
+  const clubBatch = clubs.slice(currentClubIndex, currentClubIndex + 5);
+
+  let responseMessage = "Here are some clubs for you: \n\n";
+  clubBatch.forEach(club => {
+    responseMessage += `${club}\n`;
+  });
+
+  // Update the index for the user to the next batch
+  userClubIndexes[senderNumber] = currentClubIndex + 5;
+
+  // If there are more clubs left, ask the user if they want more
+  if (userClubIndexes[senderNumber] < clubs.length) {
+    responseMessage += "\nWant more clubs? Just ask!";
+  }
+
+  return responseMessage;
+}
+
+function resetClubIndex(senderNumber) {
+  userClubIndexes[senderNumber] = 0;  // Reset to start from the beginning
+}
 
 exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
   try {
@@ -100,6 +132,16 @@ ${event.event_name || "Event"}
       }
     }
 
+    // Handle "more clubs" request
+    if (userMessage.toLowerCase().includes("more clubs")) {
+      const responseMessage = await outputClubsInBatches(senderNumber, preferences);
+      return res.status(200).send(`
+        <Response>
+          <Message>${responseMessage}</Message>
+        </Response>
+      `);
+    }
+
     // Extract preferences from the current message
     let extractedPreferences;
     try {
@@ -179,7 +221,7 @@ ${event.event_name || "Event"}
     try {
       const clubs = getMatchingClubs(updatedPreferences);
       responseMessage = clubs.length
-        ? `Here are some clubs for you: ${clubs.join(", ")}`
+        ? await outputClubsInBatches(senderNumber, updatedPreferences)  // Only show the first 5 clubs
         : "Sorry, no matching clubs found.";
       responseMessage += `\nIf you would like real-time events for these clubs, say something like "Recommend me events for the 27th of December."`;
 
