@@ -48,6 +48,8 @@ async function extractPreferencesFromMessage(apiKey, userMessage) {
             - Greater than 100 → "£100+"
           - Vibe: [High-end, Exclusive, Doesn't matter, Rave]
 
+          But the preferences must match so if someone says like "afro" you must put it into lets say afro house, and let say someone says luxury for vibes, then choose high or exclusive (these type of situations )
+
           Return a JSON object like:
           {
             "gender": "Man",
