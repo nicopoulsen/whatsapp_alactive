@@ -40,7 +40,7 @@ async function extractPreferencesFromMessage(apiKey, userMessage) {
           Extract preferences from this message: "${userMessage}".
           Match the preferences to the following predefined options:
           - Gender: [Man, Woman, Other]
-          - Music Preferences: [House, Deep House / Afro House, Commercial, Hip-Hop / Rap, Reggaeton, Tech House, Techno, EDM, Big Room, 80s]
+          - Music Preferences: [House, Deep House / Afro House, Commercial, Hip-Hop / Rap, Reggaeton, Tech House, Techno, EDM, Big Room, 80s, Bass Music]
           - Price Range: [Up to £30, £30-60, £60-100, £100+]. If the message includes a number (e.g., "80 bucks", "80 dollars"), normalize the number and map it to one of the predefined ranges as follows:
             - Up to 30 → "Up to £30"
             - Between 31 and 60 → "£30-60"
