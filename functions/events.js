@@ -15,6 +15,8 @@ async function extractEventQuery(apiKey, userMessage) {
         role: "user",
         content: `
           Analyze the following message: "${userMessage}".
+          Make sure to be very sure tho like the user must literally be like i want events, or suggest events 
+          if someone says like i want house music (thats not wanting events) the word events must literally be present
           1. Does the user want event recommendations? Answer "yes" or "no".
           2. If yes, extract the requested date. If no date is provided, leave it empty.
           Return this as JSON:

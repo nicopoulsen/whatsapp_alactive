@@ -49,6 +49,9 @@ async function extractPreferencesFromMessage(apiKey, userMessage) {
           - Vibe: [High-end, Exclusive, Doesn't matter, Rave]
 
           But the preferences must match so if someone says like "afro" you must put it into lets say afro house, and let say someone says luxury for vibes, then choose high or exclusive (these type of situations )
+          make sure for vibes it must not confuse it and update music simultaneously - 
+           also dont update vibes without being very sure -- sometimes u tend to update vibe for no reason when user is just specifying music- the vibe will be very clear based on user specification
+           
 
           Return a JSON object like:
           {
