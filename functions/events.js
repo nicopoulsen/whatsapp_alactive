@@ -54,14 +54,19 @@ async function getEventsForClubs(clubs, date) {
         tickets_link,
         min_age,
         starting_time,
-        closing_time
+        closing_time,
+        guest_list_min_price_gentlemen,
+        guest_list_max_price_gentlemen,
+        guest_list_min_price_ladies,
+        guest_list_max_price_ladies,
+        tables_min_price
       `)
       .eq('venue_name', club)
       .eq('date', date);
 
     if (error) {
       console.error(`Error fetching events for ${club}:`, error.message);
-      continue;  // Skip this club if there's an error fetching events
+      continue; // Skip this club if there's an error fetching events
     }
 
     // Only push events that have a non-null `tickets_link`
@@ -75,11 +80,17 @@ async function getEventsForClubs(clubs, date) {
         tickets_link: event.tickets_link,
         min_age: event.min_age || "N/A",
         time: `${event.starting_time || "N/A"} - ${event.closing_time || "N/A"}`,
+        guest_list_min_price_gentlemen: event.guest_list_min_price_gentlemen || "N/A",
+        guest_list_max_price_gentlemen: event.guest_list_max_price_gentlemen || "N/A",
+        guest_list_min_price_ladies: event.guest_list_min_price_ladies || "N/A",
+        guest_list_max_price_ladies: event.guest_list_max_price_ladies || "N/A",
+        tables_min_price: event.tables_min_price || "N/A"
       });
     });
   }
 
-  return events;  // Returns only clubs that have events with valid tickets_link
+  return events; // Returns only clubs that have events with valid tickets_link
 }
+
 
 module.exports = { extractEventQuery, getEventsForClubs };

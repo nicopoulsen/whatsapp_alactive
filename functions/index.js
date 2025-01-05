@@ -97,46 +97,61 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
 
     if (eventQuery && eventQuery.wants_events) {
       try {
+        console.log(`[DEBUG] Event query received: ${JSON.stringify(eventQuery)}`);
+    
         // Check if preferences are complete before processing events
         if (!preferences.gender || !preferences.music_preferences.length || !preferences.budget || !preferences.vibe.length) {
-          const fallbackResponse = "Please complete your preferences before requesting event recommendations.";
+          const fallbackResponse = "I couldn't fetch events without your preferences. Please provide them.";
           await saveChatMessage(senderNumber, "assistant", fallbackResponse);
+          console.log("[DEBUG] Missing preferences:", preferences);
           return res.status(200).send(`
             <Response>
               <Message>${fallbackResponse}</Message>
             </Response>
           `);
         }
-
+    
+        console.log("[DEBUG] User preferences for event query:", preferences);
+    
         // Fetch and process events
         const recommendedClubs = await getMatchingClubs(preferences);
-        console.log("Recommended clubs based on preferences:", recommendedClubs); // Log recommended clubs
-
+        console.log("[DEBUG] Recommended clubs based on preferences:", recommendedClubs);
+    
         if (!Array.isArray(recommendedClubs) || recommendedClubs.length === 0) {
           throw new Error("No clubs found based on the preferences.");
         }
-
-        
+    
+        console.log(`[DEBUG] Fetching events for date: ${eventQuery.date}`);
+    
         const events = await getEventsForClubs(recommendedClubs, eventQuery.date);
-
-        console.log("Fetched events:", events);  // Log the events fetched
-
-        let responseMessage = "Here are the events for the requested date:\n\n";
+    
+        // Log the raw events data for debugging
+        console.log("[DEBUG] Fetched events from database:", events);
+    
+        let responseMessage = `Here are the events for **${eventQuery.date}**:\n\n`;
+    
+        // Format events for user response
         for (const event of events) {
           if (event.tickets_link) {
+            console.log(`[DEBUG] Processing event: ${event.event_name || "Unnamed Event"} at ${event.venue_name || "Unknown Venue"}`);
             responseMessage += `
-${event.event_name || "Event"}
-📍 ${event.venue_name || "Venue Unknown"}
-📅 ${event.date || "N/A"}
-⏰ Time: ${event.time || "N/A"}
-🔞 Minimum Age: ${event.min_age || "N/A"}
-🎟 Tickets: [Get Tickets](${event.tickets_link})\n\n`;
+    🎉 **${event.event_name || "Event"}**  
+    📍 **Venue**: ${event.venue_name || "Unknown"}  
+    📅 **Date**: ${event.date || "N/A"}  
+    ⏰ **Time**: ${event.time || "N/A"}  
+    🔞 **Minimum Age**: ${event.min_age || "N/A"}  
+    🎟 **Tickets**: [Get Tickets Here](${event.tickets_link})  
+    👔 **Gentleman Guest List**: £${event.guest_list_min_price_gentlemen || "N/A"} - £${event.guest_list_max_price_gentlemen || "N/A"}  
+    👗 **Ladies Guest List**: £${event.guest_list_min_price_ladies || "N/A"} - £${event.guest_list_max_price_ladies || "N/A"}  
+    🍾 **Current Lowest Table Price**: £${event.tables_min_price || "N/A"}\n\n`;
           } else {
+            console.log(`[DEBUG] No tickets available for event at ${event.venue_name || "Unknown Venue"}`);
             responseMessage += `${event.venue_name || "Unknown Club"} - No events on this day!\n\n`;
           }
         }
-
+    
         // Save assistant's response and return it to the user
+        console.log("[DEBUG] Final response message for events:", responseMessage);
         await saveChatMessage(senderNumber, "assistant", responseMessage);
         return res.status(200).send(`
           <Response>
@@ -144,7 +159,7 @@ ${event.event_name || "Event"}
           </Response>
         `);
       } catch (error) {
-        console.error("Error processing event request:", error.message);
+        console.error("[ERROR] Error processing event request:", error.message);
         const fallbackResponse = "I couldn't fetch events at the moment. Please try again later.";
         await saveChatMessage(senderNumber, "assistant", fallbackResponse);
         return res.status(500).send(`
@@ -153,7 +168,7 @@ ${event.event_name || "Event"}
           </Response>
         `);
       }
-    }
+    }    
 
     // Handle "more clubs" request
     if (userMessage.toLowerCase().includes("more clubs")) {
