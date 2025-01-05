@@ -1,7 +1,7 @@
 const functions = require('firebase-functions');
 const { saveChatMessage, getChatHistory, savePreferences, getPreferences } = require('./firebase');
 const { extractPreferencesFromMessage, mapBudgetToRange } = require('./gpt');
-const { getMatchingClubs } = require('./clubs');
+const { getMatchingClubs, getClubDetails } = require('./clubs');
 const { extractEventQuery, getEventsForClubs } = require('./events');
 require('dotenv').config();
 
@@ -17,10 +17,29 @@ async function outputClubsInBatches(senderNumber, preferences) {
   // Slice to get the current batch of 5 clubs
   const clubBatch = clubs.slice(currentClubIndex, currentClubIndex + 5);
 
+  console.log("Club batch to fetch details for:", clubBatch);  // Log to see which clubs we are fetching
+
+  // Fetch detailed information for the clubs in the batch
+  const clubDetails = await getClubDetails(clubBatch);
+
+  console.log("Fetched club details:", clubDetails);  // Log to check if we are getting the correct data
+
   let responseMessage = "Here are some clubs for you: \n\n";
-  clubBatch.forEach(club => {
-    responseMessage += `${club}\n`;
-  });
+
+  // Format the detailed information for each club
+  if (clubDetails.length > 0) {
+    clubDetails.forEach(club => {
+      responseMessage += `
+      ${club.venue_name}  
+      📍 Location: ${club.municipality}  
+      🏷️ Address: ${club.address}  
+      📮 Postcode: ${club.postcode}  
+      🍸 Cocktail Max Price: ${club.cocktail_max_price}  
+      📝 Description: ${club.description || "N/A"}\n\n`;
+    });
+  } else {
+    responseMessage += "No details found for these clubs. Please try again later.\n";
+  }
 
   // Update the index for the user to the next batch
   userClubIndexes[senderNumber] = currentClubIndex + 5;
@@ -91,12 +110,16 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
 
         // Fetch and process events
         const recommendedClubs = await getMatchingClubs(preferences);
+        console.log("Recommended clubs based on preferences:", recommendedClubs); // Log recommended clubs
 
         if (!Array.isArray(recommendedClubs) || recommendedClubs.length === 0) {
           throw new Error("No clubs found based on the preferences.");
         }
 
+        
         const events = await getEventsForClubs(recommendedClubs, eventQuery.date);
+
+        console.log("Fetched events:", events);  // Log the events fetched
 
         let responseMessage = "Here are the events for the requested date:\n\n";
         for (const event of events) {
@@ -252,3 +275,4 @@ ${event.event_name || "Event"}
     `);
   }
 });
+
