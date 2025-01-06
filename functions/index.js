@@ -121,33 +121,44 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
           throw new Error("No clubs found based on the preferences.");
         }
     
-        console.log(`[DEBUG] Fetching events for date: ${eventQuery.date}`);
-    
-        const events = await getEventsForClubs(recommendedClubs, eventQuery.date);
-    
-        // Log the raw events data for debugging
-        console.log("[DEBUG] Fetched events from database:", events);
+        // Fetch events for the requested date
+        let events = await getEventsForClubs(recommendedClubs, eventQuery.date);
+        console.log(`[DEBUG] Fetched events for ${eventQuery.date}:`, events);
     
         let responseMessage = `Here are the events for **${eventQuery.date}**:\n\n`;
     
-        // Format events for user response
-        for (const event of events) {
-          if (event.tickets_link) {
-            console.log(`[DEBUG] Processing event: ${event.event_name || "Unnamed Event"} at ${event.venue_name || "Unknown Venue"}`);
+        // If fewer than 5 events found, fetch events for the next 7 days
+        if (events.length < 5) {
+          console.log("[DEBUG] Not enough events found, extending search to next 7 days");
+          for (let i = 1; i <= 8; i++) {
+            const nextDate = new Date(eventQuery.date);
+            nextDate.setDate(nextDate.getDate() + i);
+            const nextDateString = nextDate.toISOString().split('T')[0]; // Format date as YYYY-MM-DD
+            const nextDayEvents = await getEventsForClubs(recommendedClubs, nextDateString);
+            console.log(`[DEBUG] Fetched events for ${nextDateString}:`, nextDayEvents);
+    
+            events = events.concat(nextDayEvents);
+    
+            if (events.length >= 5) break; // Stop when we have enough events
+          }
+        }
+    
+        if (events.length === 0) {
+          responseMessage = "Sorry, no events found for the requested date or the next 7 days.";
+        } else {
+          // Format events for the response
+          events.forEach(event => {
             responseMessage += `
     🎉 **${event.event_name || "Event"}**  
-    📍 **Venue**: ${event.venue_name || "Unknown"}  
+    📍 **Venue**: ${event.venue_name || "Venue Unknown"}  
     📅 **Date**: ${event.date || "N/A"}  
     ⏰ **Time**: ${event.time || "N/A"}  
     🔞 **Minimum Age**: ${event.min_age || "N/A"}  
-    🎟 **Tickets**: [Get Tickets Here](${event.tickets_link})  
+    🎟 **Tickets**: [Get Tickets Here](${event.tickets_link || "N/A"})  
     👔 **Gentleman Guest List**: £${event.guest_list_min_price_gentlemen || "N/A"} - £${event.guest_list_max_price_gentlemen || "N/A"}  
     👗 **Ladies Guest List**: £${event.guest_list_min_price_ladies || "N/A"} - £${event.guest_list_max_price_ladies || "N/A"}  
     🍾 **Current Lowest Table Price**: £${event.tables_min_price || "N/A"}\n\n`;
-          } else {
-            console.log(`[DEBUG] No tickets available for event at ${event.venue_name || "Unknown Venue"}`);
-            responseMessage += `${event.venue_name || "Unknown Club"} - No events on this day!\n\n`;
-          }
+          });
         }
     
         // Save assistant's response and return it to the user
@@ -168,7 +179,8 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
           </Response>
         `);
       }
-    }    
+    }
+    
 
     // Handle "more clubs" request
     if (userMessage.toLowerCase().includes("more clubs")) {
