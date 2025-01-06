@@ -46,7 +46,7 @@ async function outputClubsInBatches(senderNumber, preferences) {
 
   // If there are more clubs left, ask the user if they want more
   if (userClubIndexes[senderNumber] < clubs.length) {
-    responseMessage += "\nWant more clubs? Just ask!";
+    responseMessage += "\nWant more clubs? Just say 'more clubs'!";
   }
 
   return responseMessage;
