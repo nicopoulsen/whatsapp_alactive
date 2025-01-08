@@ -699,12 +699,78 @@
                                                                 "Mistress of Mayfair",
                                                                 "The Box"
                                                             ]
+                                                        },
+                                                        {
+                                                            "preferences": {
+                                                                "music_preferences": {
+                                                                    "group_a": [
+                                                                        "Commercial",
+                                                                        "Hip-Hop / Rap",
+                                                                        "Reggaeton",
+                                                                        "Big Room",
+                                                                        "EDM",
+                                                                        "Bass Music"
+                                                                    ],
+                                                                    "group_b": [
+                                                                        "Afro House",
+                                                                        "House",
+                                                                        "Tech House",
+                                                                        "Techno"
+                                                                    ],
+                                                                    "match_mode": true
+                                                                },
+                                                                "budget": ["Up to £30","£30-60","£60-100", "£100+"],
+                                                                "vibe": [
+                                                                    "Exclusive", "High-end"
+                                                                ],
+                                                                "gender": ["Woman"]
+                                                            },
+                                                            "clubs": [
+                                                                "Maddox",
+                                                                "The Cuckoo Club",
+                                                                "The Box",
+                                                                "Tape",
+                                                                "Cirque",
+                                                                "Mistress Of Mayfair",
+                                                                "Selene",
+                                                                "Tabu",
+                                                                "Luxx",
+                                                                "Maroto",
+                                                                "Reign",
+                                                                "Dear Darling",
+                                                                "Sumosan Twiga",
+                                                                "B",
+                                                                "Scotch",
+                                                                "Beat",
+                                                                "Bohemia",
+                                                                "The Houseparty",
+                                                                "Koko",
+                                                                "Lìo",
+                                                                "Maddox (Green Room)",
+                                                                "Hovarda Soho",
+                                                                "Hovarda Canary Wharf",
+                                                                "Luna",
+                                                                "Tonteria",
+                                                                "Raffles",
+                                                                "Stereo",
+                                                                "Maggie’s Club",
+                                                                "Ministry Of Sound",
+                                                                "Fabric",
+                                                                "Xoyo",
+                                                                "E1",
+                                                                "Egg London",
+                                                                "The Roundhouse",
+                                                                "Drumsheds",
+                                                                "Phonox",
+                                                                "Eight Embankment",
+                                                                "Studio 338",
+                                                                "Scala",
+                                                                "Lightbox",
+                                                                "Corsica Studios",
+                                                                "Bar Rumba"
+                                                            ]
                                                         }
+
 
                                                     ]
                                                 }
-                                                
-                                    
-                        
-                
-
