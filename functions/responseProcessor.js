@@ -1,5 +1,5 @@
 const { getChatHistory, saveChatMessage, getPreferences, savePreferences } = require('./firebase');
-const { extractPreferencesFromMessage } = require('./gpt');
+const { extractPreferencesFromMessage, mapBudgetToRange} = require('./gpt');
 const { handleEventQuery } = require('./handlers/eventHandler');
 const { sendWhatsAppMessage } = require('./metaApi');
 const { extractEventQuery } = require('./events');
@@ -21,48 +21,72 @@ async function processAndSendResponse(senderNumber, userMessage) {
 
     await saveChatMessage(senderNumber, "user", userMessage);
 
-    // Step 1: Extract preferences and update them incrementally
-    const extractedPreferences = await extractPreferencesFromMessage(process.env.OPENAI_API_KEY, userMessage);
-    console.log(`[DEBUG] Extracted preferences from message:`, extractedPreferences);
+    // Step 1: Extract preferences from the message
+    let extractedPreferences;
+    try {
+      extractedPreferences = await extractPreferencesFromMessage(process.env.OPENAI_API_KEY, userMessage);
+      console.log("[DEBUG] Extracted preferences:", extractedPreferences);
+    } catch (error) {
+      console.error("Error extracting preferences:", error.message);
+      const fallbackResponse = "I couldn't understand your preferences. Can you rephrase?";
+      await saveChatMessage(senderNumber, "assistant", fallbackResponse);
+      await sendWhatsAppMessage(senderNumber, fallbackResponse);
+      return;
+    }
 
+    // Normalize budget if present (e.g., map numbers like 80 to predefined ranges)
+    if (extractedPreferences.budget) {
+      extractedPreferences.budget = mapBudgetToRange(extractedPreferences.budget);
+    }
+
+    // Step 2: Merge extracted preferences with existing ones
     const updatedPreferences = {
-      gender: extractedPreferences.gender !== undefined ? extractedPreferences.gender : preferences.gender || "",
-      music_preferences: extractedPreferences.music_preferences?.length
-        ? Array.from(new Set([...(preferences.music_preferences || []), ...extractedPreferences.music_preferences]))
+      gender: extractedPreferences.gender || preferences.gender || "",
+      music_preferences: extractedPreferences.music_preferences.length > 0
+        ? extractedPreferences.music_preferences
         : preferences.music_preferences || [],
-      budget: extractedPreferences.budget !== undefined ? extractedPreferences.budget : preferences.budget || "",
-      vibe: extractedPreferences.vibe?.length
-        ? Array.from(new Set([...(preferences.vibe || []), ...extractedPreferences.vibe]))
+      budget: extractedPreferences.budget || preferences.budget || "",
+      vibe: extractedPreferences.vibe.length > 0
+        ? extractedPreferences.vibe
         : preferences.vibe || [],
     };
-    console.log(`[DEBUG] Updated preferences:`, updatedPreferences);
+    console.log("[DEBUG] Updated preferences:", updatedPreferences);
 
-    await savePreferences(senderNumber, updatedPreferences);
+    // Save updated preferences back to the database
+    try {
+      await savePreferences(senderNumber, updatedPreferences);
+      console.log("[DEBUG] Preferences saved successfully:", updatedPreferences);
+    } catch (error) {
+      console.error("Error saving preferences:", error.message);
+    }
 
-    // Step 2: Check for missing preferences
+    // Step 3: Check for missing preferences
     const missingFields = [];
     if (!updatedPreferences.gender) missingFields.push("gender");
-    if (!updatedPreferences.music_preferences?.length) missingFields.push("music preferences (up to 3)");
+    if (!updatedPreferences.music_preferences || updatedPreferences.music_preferences.length === 0)
+      missingFields.push("music preferences (up to 3)");
     if (!updatedPreferences.budget) missingFields.push("budget");
-    if (!updatedPreferences.vibe?.length) missingFields.push("vibe (up to 3)");
+    if (!updatedPreferences.vibe || updatedPreferences.vibe.length === 0) missingFields.push("vibe (up to 3)");
 
+    // Handle missing preferences
     if (missingFields.length > 0) {
       const promptMessage = `It seems like some information is still missing: ${missingFields.join(", ")}. Please provide them.`;
-      console.log(`[DEBUG] Missing fields:`, missingFields);
+      console.log("[DEBUG] Missing fields:", missingFields);
+      await saveChatMessage(senderNumber, "assistant", promptMessage);
       await sendWhatsAppMessage(senderNumber, promptMessage);
       return;
     }
 
-    // Step 3: Check for "more clubs" request
+    // Step 4: Handle "more clubs" request
     if (userMessage.toLowerCase().includes("more clubs")) {
       const currentClubIndex = userClubIndexes[senderNumber] || 0;
 
       const clubs = getMatchingClubs(updatedPreferences);
       const clubBatch = clubs.slice(currentClubIndex, currentClubIndex + 5);
-      console.log(`[DEBUG] Clubs in current batch (index ${currentClubIndex} to ${currentClubIndex + 5}):`, clubBatch);
+      console.log("[DEBUG] Clubs in current batch:", clubBatch);
 
       const clubDetails = await getClubDetails(clubBatch);
-      console.log(`[DEBUG] Detailed club information fetched:`, clubDetails);
+      console.log("[DEBUG] Fetched club details:", clubDetails);
 
       let responseMessage = "Here are some clubs for you:\n\n";
       if (clubDetails.length > 0) {
@@ -82,12 +106,12 @@ async function processAndSendResponse(senderNumber, userMessage) {
       return;
     }
 
-    // Step 4: Output clubs after preferences are complete
+    // Step 5: Output clubs if preferences are complete
     if (Object.keys(preferences).length === 0 || !userClubIndexes[senderNumber]) {
       const clubs = getMatchingClubs(updatedPreferences);
       const clubBatch = clubs.slice(0, 5);
       const clubDetails = await getClubDetails(clubBatch);
-      console.log(`[DEBUG] Detailed club information:`, clubDetails);
+      console.log("[DEBUG] Detailed club information:", clubDetails);
 
       let responseMessage = "Here are some clubs for you:\n\n";
       if (clubDetails.length > 0) {
@@ -104,16 +128,17 @@ async function processAndSendResponse(senderNumber, userMessage) {
       return;
     }
 
-    // Step 5: Handle event queries (AFTER clubs have been output)
+    // Step 6: Handle event queries
     const eventQuery = await extractEventQuery(process.env.OPENAI_API_KEY, userMessage);
     if (eventQuery && eventQuery.wants_events) {
-      console.log(`[DEBUG] Event query extracted:`, eventQuery);
+      console.log("[DEBUG] Event query extracted:", eventQuery);
 
       const responseMessage = await handleEventQuery(senderNumber, eventQuery, updatedPreferences);
-      return await sendWhatsAppMessage(senderNumber, responseMessage);
+      await sendWhatsAppMessage(senderNumber, responseMessage);
+      return;
     }
   } catch (error) {
-    console.error(`[ERROR] Error processing user response:`, error.message);
+    console.error("[ERROR] Error processing user response:", error.message);
     await sendWhatsAppMessage(senderNumber, "An error occurred. Please try again later.");
   }
 }
