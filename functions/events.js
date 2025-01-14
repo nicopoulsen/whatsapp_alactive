@@ -44,9 +44,8 @@ async function extractEventQuery(apiKey, userMessage) {
 
 // Get events for a list of clubs and a specific date
 async function getEventsForClubs(clubs, date) {
-  const events = [];
-
-  for (const club of clubs) {
+  try {
+    // Single query for all clubs in one go
     const { data, error } = await supabase
       .from('events')
       .select(`
@@ -63,36 +62,35 @@ async function getEventsForClubs(clubs, date) {
         guest_list_max_price_ladies,
         tables_min_price
       `)
-      .eq('venue_name', club)
+      .in('venue_name', clubs) // Single query for all clubs
       .eq('date', date);
 
     if (error) {
-      console.error(`Error fetching events for ${club}:`, error.message);
-      continue; // Skip club if error
+      console.error("Error fetching events for clubs:", error.message);
+      return [];
     }
 
-    // Only push events that have a non-null `tickets_link`
+    // Filter out events that lack a tickets_link
     const validEvents = data.filter((event) => event.tickets_link !== null);
 
-    validEvents.forEach((event) => {
-      events.push({
-        venue_name: event.venue_name || club, // Fallback to the club name from the input list
-        event_name: event.name || "N/A",
-        date: event.date || "N/A",
-        tickets_link: event.tickets_link,
-        min_age: event.min_age || "N/A",
-        time: `${event.starting_time || "N/A"} - ${event.closing_time || "N/A"}`,
-        guest_list_min_price_gentlemen: event.guest_list_min_price_gentlemen || "N/A",
-        guest_list_max_price_gentlemen: event.guest_list_max_price_gentlemen || "N/A",
-        guest_list_min_price_ladies: event.guest_list_min_price_ladies || "N/A",
-        guest_list_max_price_ladies: event.guest_list_max_price_ladies || "N/A",
-        tables_min_price: event.tables_min_price || "N/A"
-      });
-    });
+    // Map each event to the desired shape
+    return validEvents.map((event) => ({
+      venue_name: event.venue_name || "N/A",
+      event_name: event.name || "N/A",
+      date: event.date || "N/A",
+      tickets_link: event.tickets_link,
+      min_age: event.min_age || "N/A",
+      time: `${event.starting_time || "N/A"} - ${event.closing_time || "N/A"}`,
+      guest_list_min_price_gentlemen: event.guest_list_min_price_gentlemen || "N/A",
+      guest_list_max_price_gentlemen: event.guest_list_max_price_gentlemen || "N/A",
+      guest_list_min_price_ladies: event.guest_list_min_price_ladies || "N/A",
+      guest_list_max_price_ladies: event.guest_list_max_price_ladies || "N/A",
+      tables_min_price: event.tables_min_price || "N/A"
+    }));
+  } catch (e) {
+    console.error("Unexpected error fetching events:", e.message);
+    return [];
   }
-
-  return events; // Returns only clubs that have events with valid tickets_link-- discussed with stef
 }
-
 
 module.exports = { extractEventQuery, getEventsForClubs };

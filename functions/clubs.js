@@ -41,41 +41,40 @@ function getMatchingClubs(preferences) {
 }
 
 async function getClubDetails(clubs) {
-    const clubDetails = [];
-
-    for (const club of clubs) {
-        const { data, error } = await supabase
-            .from('venues')  
-            .select(`
-                municipality,
-                postcode,
-                address,
-                description,
-                cocktail_max_price
-            `)
-            .eq('name', club);
-
-        if (error) {
-            console.error(`Error fetching details for ${club}:`, error.message);
-            continue; 
-        }
-
-        if (data && data.length > 0) {
-            data.forEach(venue => {
-                clubDetails.push({
-                    venue_name: club,  // added club name directly for easy access rather than another query. 
-                    municipality: venue.municipality || "N/A",
-                    postcode: venue.postcode || "N/A",
-                    address: venue.address || "N/A",
-                    description: venue.description || "N/A",
-                    cocktail_max_price: venue.cocktail_max_price || "N/A"
-                });
-            });
-        }
+    // clubs is an array of strings, e.g. ["Maroto", "Maddox (Green Room)", ...]
+    const { data, error } = await supabase
+      .from('venues')
+      .select(`
+        name,
+        municipality,
+        postcode,
+        address,
+        description,
+        cocktail_max_price
+      `)
+      .in('name', clubs);  // Single query for all clubs
+  
+    if (error) {
+      console.error('Error fetching club details:', error.message);
+      return [];
     }
-
+  
+    // data will be an array of rows that matched the "in('name', clubs)" filter
+    const clubDetails = [];
+    data.forEach(venue => {
+      clubDetails.push({
+        venue_name: venue.name,
+        municipality: venue.municipality || 'N/A',
+        postcode: venue.postcode || 'N/A',
+        address: venue.address || 'N/A',
+        description: venue.description || 'N/A',
+        cocktail_max_price: venue.cocktail_max_price || 'N/A',
+      });
+    });
+  
     return clubDetails;
-}
+  }
+  
 
 
 module.exports = { getMatchingClubs, getClubDetails };
