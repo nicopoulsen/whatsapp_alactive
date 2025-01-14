@@ -14,7 +14,7 @@
   },
   "main": "index.js",
   "dependencies": {
-    "@supabase/supabase-js": "^2.47.10",
+    "@supabase/supabase-js": "^2.47.12",
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "firebase-admin": "^12.7.0",

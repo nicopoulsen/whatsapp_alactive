@@ -11,7 +11,9 @@
         "*.local"
       ],
       "predeploy": [],
-      "runtime": "nodejs18"
+      "runtime": "nodejs18",
+      "memory": "512MB",        
+      "timeoutSeconds": 120     
     }
   ]
 }
