@@ -40,7 +40,7 @@ async function extractPreferencesFromMessage(apiKey, userMessage) {
         role: "user",
         content: `
           Extract preferences from this message: "${userMessage}".
-          Match the preferences to the following predefined options:
+          Match the preferences to the following predefined options-- it must update these section only with the options listed below.:
           - Gender: [Man, Woman, Other]
           - Music Preferences: [House, Deep House / Afro House, Commercial, Hip-Hop / Rap, Reggaeton, Tech House, Techno, EDM, Big Room, 80s, Bass Music]
           - Price Range: [Up to £30, £30-60, £60-100, £100+]. If the message includes a number (e.g., "80 bucks", "80 dollars"), normalize the number and map it to one of the predefined ranges as follows:
@@ -53,12 +53,13 @@ async function extractPreferencesFromMessage(apiKey, userMessage) {
           But the preferences must match so if someone says like "afro" you must put it into lets say afro house, and let say someone says luxury for vibes, then choose high or exclusive (these type of situations )
           make sure for vibes it must not confuse it and update music simultaneously - 
            also dont update vibes without being very sure -- sometimes u tend to update vibe for no reason when user is just specifying music- the vibe will be very clear based on user specification
+           just ensure that when you match preferences into its respective categories make sure you are only updating the preferences based on what i specified above - dont make mistakes with music its very clear the genres we have above. 
            
 
           Return a JSON object like:
           {
             "gender": "Man",
-            "music_preferences": ["House"],
+            "music_preferences": ["House"] (we must ensure whatever goes in this music pref must below to [House, Deep House / Afro House, Commercial, Hip-Hop / Rap, Reggaeton, Tech House, Techno, EDM, Big Room, 80s, Bass Music] ),
             "budget": "£60-100",
             "vibe": ["High-end"]
           }

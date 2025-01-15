@@ -9,52 +9,43 @@ const { getMatchingClubs, getClubDetails } = require('./clubs');
 let userClubIndexes = {};
 
 async function processAndSendResponse(senderNumber, userMessage) {
-  console.log(`[DEBUG] Processing response for user: ${senderNumber}, message: "${userMessage}"`);
+  console.log(`[DEBUG] processAndSendResponse triggered for user: ${senderNumber}, message: "${userMessage}"`);
 
   try {
     // Retrieve chat history and preferences
-    console.time("[TIMING] getChatHistory");
+    console.log("[DEBUG] Fetching chat history and preferences...");
     const chatHistory = await getChatHistory(senderNumber) || [];
-    console.timeEnd("[TIMING] getChatHistory");
-    console.log(`[DEBUG] Retrieved chat history:`, chatHistory);
+    console.log("[DEBUG] Retrieved chat history:", chatHistory);
 
-    console.time("[TIMING] getPreferences");
     const preferences = await getPreferences(senderNumber) || {};
-    console.timeEnd("[TIMING] getPreferences");
-    console.log(`[DEBUG] User preferences loaded:`, preferences);
+    console.log("[DEBUG] Retrieved user preferences:", preferences);
 
-    console.time("[TIMING] saveChatMessage (user)");
     await saveChatMessage(senderNumber, "user", userMessage);
-    console.timeEnd("[TIMING] saveChatMessage (user)");
+    console.log(`[DEBUG] Saved user message: "${userMessage}"`);
 
     // Step 1: Extract preferences from the message
     let extractedPreferences;
     try {
-      console.time("[TIMING] extractPreferencesFromMessage");
+      console.log("[DEBUG] Extracting preferences from message...");
       extractedPreferences = await extractPreferencesFromMessage(process.env.OPENAI_API_KEY, userMessage);
-      console.timeEnd("[TIMING] extractPreferencesFromMessage");
       console.log("[DEBUG] Extracted preferences:", extractedPreferences);
     } catch (error) {
-      console.error("Error extracting preferences:", error.message);
+      console.error("[ERROR] Failed to extract preferences:", error.message);
 
       const fallbackResponse = "I couldn't understand your preferences. Can you rephrase?";
-      console.time("[TIMING] saveChatMessage (assistant fallback)");
       await saveChatMessage(senderNumber, "assistant", fallbackResponse);
-      console.timeEnd("[TIMING] saveChatMessage (assistant fallback)");
+      console.log("[DEBUG] Saved fallback response to chat history.");
 
-      console.time("[TIMING] sendWhatsAppMessage (fallback)");
       await sendWhatsAppMessage(senderNumber, fallbackResponse);
-      console.timeEnd("[TIMING] sendWhatsAppMessage (fallback)");
-
+      console.log("[DEBUG] Sent fallback response to user.");
       return;
     }
 
-    // Normalize budget if present (e.g., map numbers like 80 to predefined ranges)
-    // (mapBudgetToRange is likely a small synchronous function, but we can still track it)
+    // Normalize budget if present
     if (extractedPreferences.budget) {
-      console.time("[TIMING] mapBudgetToRange");
+      console.log("[DEBUG] Mapping user budget to range:", extractedPreferences.budget);
       extractedPreferences.budget = mapBudgetToRange(extractedPreferences.budget);
-      console.timeEnd("[TIMING] mapBudgetToRange");
+      console.log("[DEBUG] Budget after mapping:", extractedPreferences.budget);
     }
 
     // Step 2: Merge extracted preferences with existing ones
@@ -68,16 +59,14 @@ async function processAndSendResponse(senderNumber, userMessage) {
         ? extractedPreferences.vibe
         : preferences.vibe || [],
     };
-    console.log("[DEBUG] Updated preferences:", updatedPreferences);
+    console.log("[DEBUG] Updated preferences to save:", updatedPreferences);
 
-    // Save updated preferences back to the database
+    // Save updated preferences
     try {
-      console.time("[TIMING] savePreferences");
       await savePreferences(senderNumber, updatedPreferences);
-      console.timeEnd("[TIMING] savePreferences");
-      console.log("[DEBUG] Preferences saved successfully:", updatedPreferences);
+      console.log("[DEBUG] Saved updated preferences:", updatedPreferences);
     } catch (error) {
-      console.error("Error saving preferences:", error.message);
+      console.error("[ERROR] Failed to save updated preferences:", error.message);
     }
 
     // Step 3: Check for missing preferences
@@ -88,36 +77,35 @@ async function processAndSendResponse(senderNumber, userMessage) {
     if (!updatedPreferences.budget) missingFields.push("budget");
     if (!updatedPreferences.vibe || updatedPreferences.vibe.length === 0) missingFields.push("vibe (up to 3)");
 
-    // Handle missing preferences
     if (missingFields.length > 0) {
       const promptMessage = `It seems like some information is still missing: ${missingFields.join(", ")}. Please provide them.`;
-      console.log("[DEBUG] Missing fields:", missingFields);
+      console.log("[DEBUG] Missing preferences detected:", missingFields);
 
-      console.time("[TIMING] saveChatMessage (assistant missingFields)");
       await saveChatMessage(senderNumber, "assistant", promptMessage);
-      console.timeEnd("[TIMING] saveChatMessage (assistant missingFields)");
+      console.log("[DEBUG] Saved missing-fields prompt to chat history.");
 
-      console.time("[TIMING] sendWhatsAppMessage (missingFields)");
       await sendWhatsAppMessage(senderNumber, promptMessage);
-      console.timeEnd("[TIMING] sendWhatsAppMessage (missingFields)");
+      console.log("[DEBUG] Sent missing-fields prompt to user.");
       return;
     }
 
+    // =========================
     // Step 4: Handle "more clubs" request
+    // =========================
     if (userMessage.toLowerCase().includes("more clubs")) {
-      const currentClubIndex = userClubIndexes[senderNumber] || 0;
+      console.log("[DEBUG] Handling 'more clubs' request...");
 
-      console.time("[TIMING] getMatchingClubs");
+      const currentClubIndex = userClubIndexes[senderNumber] || 0;
+      console.log("[DEBUG] Current user club index:", currentClubIndex);
+
       const clubs = getMatchingClubs(updatedPreferences);
-      console.timeEnd("[TIMING] getMatchingClubs");
+      console.log("[DEBUG] Full list of matching clubs:", clubs);
 
       const clubBatch = clubs.slice(currentClubIndex, currentClubIndex + 5);
-      console.log("[DEBUG] Clubs in current batch:", clubBatch);
+      console.log("[DEBUG] Next 5 clubs to show:", clubBatch);
 
-      console.time("[TIMING] getClubDetails");
       const clubDetails = await getClubDetails(clubBatch);
-      console.timeEnd("[TIMING] getClubDetails");
-      console.log("[DEBUG] Fetched club details:", clubDetails);
+      console.log("[DEBUG] Retrieved club details:", clubDetails);
 
       let responseMessage = "Here are some clubs for you:\n\n";
       if (clubDetails.length > 0) {
@@ -129,71 +117,80 @@ async function processAndSendResponse(senderNumber, userMessage) {
       }
 
       userClubIndexes[senderNumber] = currentClubIndex + 5;
+      console.log("[DEBUG] Updated user club index to:", userClubIndexes[senderNumber]);
+
       if (userClubIndexes[senderNumber] < clubs.length) {
         responseMessage += "\nWant more clubs? Just say 'more clubs'!";
       }
 
-      console.time("[TIMING] sendWhatsAppMessage (more clubs)");
       await sendWhatsAppMessage(senderNumber, responseMessage);
-      console.timeEnd("[TIMING] sendWhatsAppMessage (more clubs)");
+      console.log("[DEBUG] Sent 'more clubs' batch to user.");
       return;
     }
 
+    // =========================
     // Step 5: Output clubs if preferences are complete
-    if (Object.keys(preferences).length === 0 || !userClubIndexes[senderNumber]) {
-      console.time("[TIMING] getMatchingClubs (initial list)");
+    // =========================
+    const userIndexExists = typeof userClubIndexes[senderNumber] !== 'undefined';
+    if (!userIndexExists) {
+      console.log("[DEBUG] User has not seen clubs yet, showing initial list...");
+
       const clubs = getMatchingClubs(updatedPreferences);
-      console.timeEnd("[TIMING] getMatchingClubs (initial list)");
+      console.log("[DEBUG] Full list of matching clubs:", clubs);
 
       const clubBatch = clubs.slice(0, 5);
+      console.log("[DEBUG] First 5 clubs to show:", clubBatch);
 
-      console.time("[TIMING] getClubDetails (initial list)");
       const clubDetails = await getClubDetails(clubBatch);
-      console.timeEnd("[TIMING] getClubDetails (initial list)");
-
-      console.log("[DEBUG] Detailed club information:", clubDetails);
+      console.log("[DEBUG] Retrieve club details:", clubDetails);
 
       let responseMessage = "Here are some clubs for you:\n\n";
       if (clubDetails.length > 0) {
         clubDetails.forEach((club) => {
-          responseMessage += `${club.venue_name}\n📍 Location: ${club.municipality}\n🍸 Max Price: £${club.cocktail_max_price}\n\n`;
+          responseMessage += `
+${club.venue_name}  
+📍 Location: ${club.municipality}  
+🏷️ Address: ${club.address}  
+📮 Postcode: ${club.postcode}  
+🍸 Cocktail Max Price: ${club.cocktail_max_price}  
+📱 Instagram Link: ${club.instagram_link}
+📝 Description: ${club.description || "N/A"}\n\n`;
         });
         responseMessage += "\nWant more clubs? Just say 'more clubs'! You can also ask for event recommendations.";
       } else {
         responseMessage = "Sorry, no matching clubs found.";
       }
 
-      console.time("[TIMING] sendWhatsAppMessage (initial clubs)");
-      await sendWhatsAppMessage(senderNumber, responseMessage);
-      console.timeEnd("[TIMING] sendWhatsAppMessage (initial clubs)");
+      userClubIndexes[senderNumber] = 5; // So that "more clubs" starts at index 5
+      console.log("[DEBUG] Initialized user club index to 5.");
 
-      userClubIndexes[senderNumber] = 5;
+      await sendWhatsAppMessage(senderNumber, responseMessage);
+      console.log("[DEBUG] Sent initial clubs list to user.");
       return;
     }
 
     // Step 6: Handle event queries
-    console.time("[TIMING] extractEventQuery");
+    console.log("[DEBUG] Checking for event query...");
     const eventQuery = await extractEventQuery(process.env.OPENAI_API_KEY, userMessage);
-    console.timeEnd("[TIMING] extractEventQuery");
+    console.log("[DEBUG] Event query result:", eventQuery);
 
     if (eventQuery && eventQuery.wants_events) {
-      console.log("[DEBUG] Event query extracted:", eventQuery);
+      console.log("[DEBUG] Detected event request. Invoking handleEventQuery...");
 
-      console.time("[TIMING] handleEventQuery");
       const responseMessage = await handleEventQuery(senderNumber, eventQuery, updatedPreferences);
-      console.timeEnd("[TIMING] handleEventQuery");
+      console.log("[DEBUG] handleEventQuery returned:", responseMessage);
 
-      console.time("[TIMING] sendWhatsAppMessage (events)");
       await sendWhatsAppMessage(senderNumber, responseMessage);
-      console.timeEnd("[TIMING] sendWhatsAppMessage (events)");
-
+      console.log("[DEBUG] Sent event query response to user.");
       return;
     }
+
+    console.log("[DEBUG] No more actions required, finishing processAndSendResponse...");
   } catch (error) {
-    console.error("[ERROR] Error processing user response:", error.message);
-    console.time("[TIMING] sendWhatsAppMessage (catch error)");
+    console.error("[ERROR] Error in processAndSendResponse:", error.message);
+
     await sendWhatsAppMessage(senderNumber, "An error occurred. Please try again later.");
-    console.timeEnd("[TIMING] sendWhatsAppMessage (catch error)");
+    console.log("[DEBUG] Sent error fallback message to user.");
   }
 }
 

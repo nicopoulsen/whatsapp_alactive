@@ -31,12 +31,16 @@ async function handleEventQuery(senderNumber, eventQuery, preferences) {
   let responseMessage = `Here are some events for ${eventQuery.date}:\n\n`;
   events.forEach(event => {
     responseMessage += `
-      🎉 ${event.event_name || "Event"}
-      📍 Venue: ${event.venue_name || "Unknown"}
-      📅 Date: ${event.date || "N/A"}
-      🔞 Minimum Age: ${event.min_age || "N/A"}
-      🎟 Tickets: ${event.tickets_link || "N/A"}\n\n`;
-  });
+    🎉 **${event.event_name || "Event"}**  
+    📍 **Venue**: ${event.venue_name || "Venue Unknown"}  
+    📅 **Date**: ${event.date || "N/A"}  
+    ⏰ **Time**: ${event.time || "N/A"}  
+    🔞 **Minimum Age**: ${event.min_age || "N/A"}  
+    🎟 **Tickets**: [Get Tickets Here](${event.tickets_link || "N/A"})  
+    👔 **Gentleman Guest List**: £${event.guest_list_min_price_gentlemen || "N/A"} - £${event.guest_list_max_price_gentlemen || "N/A"}  
+    👗 **Ladies Guest List**: £${event.guest_list_min_price_ladies || "N/A"} - £${event.guest_list_max_price_ladies || "N/A"}  
+    🍾 **Current Lowest Table Price**: £${event.tables_min_price || "N/A"}\n\n`;
+          });
 
   return responseMessage;
 }

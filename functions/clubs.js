@@ -50,7 +50,8 @@ async function getClubDetails(clubs) {
         postcode,
         address,
         description,
-        cocktail_max_price
+        cocktail_max_price,
+        instagram_link
       `)
       .in('name', clubs);  // Single query for all clubs
   
@@ -68,7 +69,9 @@ async function getClubDetails(clubs) {
         postcode: venue.postcode || 'N/A',
         address: venue.address || 'N/A',
         description: venue.description || 'N/A',
-        cocktail_max_price: venue.cocktail_max_price || 'N/A',
+        instagram_link: venue.instagram_link || "N/A",
+        cocktail_max_price: venue.cocktail_max_price || 'N/A'
+
       });
     });
   
