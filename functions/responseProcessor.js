@@ -5,6 +5,7 @@ const { sendWhatsAppMessage } = require('./metaApi');
 const { extractEventQuery } = require('./events');
 const { getMatchingClubs, getClubDetails } = require('./clubs');
 const { initChatModel } = require("langchain/chat_models/universal");
+const firstInteractionMessage = require("./firstMessage"); // <-- new import
 
 // Store user club index for batching
 let userClubIndexes = {};
@@ -13,11 +14,22 @@ async function processAndSendResponse(senderNumber, userMessage) {
   console.log(`[DEBUG] processAndSendResponse triggered for user: ${senderNumber}, message: "${userMessage}"`);
 
   try {
-    // Retrieve chat history and preferences
-    console.log("[DEBUG] Fetching chat history and preferences...");
-    const chatHistory = await getChatHistory(senderNumber) || [];
+    const chatHistory = await getChatHistory(senderNumber) || {};
     console.log("[DEBUG] Retrieved chat history:", chatHistory);
 
+    if (Object.keys(chatHistory).length === 0) {
+      console.log("[DEBUG] This is the user's first interaction; sending initial message...");
+
+      await saveChatMessage(senderNumber, "user", userMessage);
+
+      await sendWhatsAppMessage(senderNumber, firstInteractionMessage);
+      console.log("[DEBUG] Sent first interaction message to user.");
+
+      await saveChatMessage(senderNumber, "assistant", firstInteractionMessage);
+
+    
+      return;
+    }
     const preferences = await getPreferences(senderNumber) || {};
     console.log("[DEBUG] Retrieved user preferences:", preferences);
 
@@ -229,7 +241,9 @@ If user asks about something else, answer briefly and steer them back to clubs/e
 You are a friendly chatbot that specializes in London nightlife. 
 If the user is making small talk, respond politely in 1-2 sentences.
 Then gently steer them back to the main usage: 
-helping them find clubs or events in London.
+1. Ask for more clubs
+2. Ask for event reccomendations (on a specific day)
+3. Reset your preferences to start over
 `;
 
       const gptGeneralResponse = await chat.invoke([

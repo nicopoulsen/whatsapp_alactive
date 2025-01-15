@@ -1,4 +1,5 @@
 //File for club handling and formatting
+//not currently using btw (can adjust back into processor when logic is good for showcase)
 
 const { getMatchingClubs, getClubDetails } = require('../clubs');
 
