@@ -4,6 +4,7 @@ const { handleEventQuery } = require('./handlers/eventHandler');
 const { sendWhatsAppMessage } = require('./metaApi');
 const { extractEventQuery } = require('./events');
 const { getMatchingClubs, getClubDetails } = require('./clubs');
+const { initChatModel } = require("langchain/chat_models/universal");
 
 // Store user club index for batching
 let userClubIndexes = {};
@@ -185,10 +186,68 @@ ${club.venue_name}
       return;
     }
 
+    // 6b) wants_more_info -> Let GPT rely on its own knowledge (no DB context)
+    if (eventQuery.wants_more_info) {
+      console.log("[DEBUG] Detected user wants more club info (GPT knowledge).");
+
+      const chat = await initChatModel("gpt-3.5-turbo", {
+        modelProvider: "openai",
+        openAIApiKey: process.env.OPENAI_API_KEY,
+        temperature: 0.7,
+      });
+
+      const systemPrompt = `
+You are an expert on London's nightlife scene. 
+If the user wants dress code, min age, table pricing, etc for a specific London club, 
+answer from your general knowledge. Also at the end be like " Please refer to the club descriptions above" If you are unsure, politely say so.
+If user asks about something else, answer briefly and steer them back to clubs/events.
+`;
+
+      const gptResponse = await chat.invoke([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ]);
+
+      const moreInfoResponse = gptResponse.content.trim();
+
+      await saveChatMessage(senderNumber, "assistant", moreInfoResponse);
+      await sendWhatsAppMessage(senderNumber, moreInfoResponse);
+      console.log("[DEBUG] Sent GPT-based 'more info' response (no DB).");
+      return;
+    }
+
+    if (eventQuery.general_chat) {
+      console.log("[DEBUG] Detected general chat. Generating GPT frienldy response...");
+
+      const chat = await initChatModel("gpt-3.5-turbo", {
+        modelProvider: "openai",
+        openAIApiKey: process.env.OPENAI_API_KEY,
+        temperature: 0.7,
+      });
+
+      const systemPrompt = `
+You are a friendly chatbot that specializes in London nightlife. 
+If the user is making small talk, respond politely in 1-2 sentences.
+Then gently steer them back to the main usage: 
+helping them find clubs or events in London.
+`;
+
+      const gptGeneralResponse = await chat.invoke([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ]);
+
+      const generalChatResponse = gptGeneralResponse.content.trim();
+
+      await saveChatMessage(senderNumber, "assistant", generalChatResponse);
+      await sendWhatsAppMessage(senderNumber, generalChatResponse);
+      console.log("[DEBUG] Sent general chat GPT response.");
+      return;
+    }
+
     console.log("[DEBUG] No more actions required, finishing processAndSendResponse...");
   } catch (error) {
     console.error("[ERROR] Error in processAndSendResponse:", error.message);
-
     await sendWhatsAppMessage(senderNumber, "An error occurred. Please try again later.");
     console.log("[DEBUG] Sent error fallback message to user.");
   }

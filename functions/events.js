@@ -1,9 +1,6 @@
-//event processing and querying
-
 const supabase = require('./supabaseClient');
 const { initChatModel } = require("langchain/chat_models/universal");
 
-// Extract event query from user input
 async function extractEventQuery(apiKey, userMessage) {
   const chat = await initChatModel("gpt-3.5-turbo", {
     modelProvider: "openai",
@@ -16,16 +13,29 @@ async function extractEventQuery(apiKey, userMessage) {
       {
         role: "user",
         content: `
-          Analyze the following message: "${userMessage}".
-          Make sure to be very sure tho like the user must literally be like i want events, or suggest events 
-          if someone says like i want house music (thats not wanting events) the word events must literally be present
-          1. Does the user want event recommendations? Answer "yes" or "no".
-          2. If yes, extract the requested date. If no date is provided, leave it empty.
-          Return this as JSON:
+          You are a classification model. 
+          Analyze the following message: "${userMessage}"
+
+          1. Does the user literally request "events"? 
+             (The user must literally mention "events" or "recommend events" or "suggest events" 
+              to be considered "wants_events: true".) 
+             If yes, try to extract a requested date (YYYY-MM-DD). If no date is provided, leave it empty.
+
+          2. Does the user want more information about a specific club in london -- things like:  (like dress code, min age, location, table pricing, etc.)?
+          so like "whats the dress code at Koko?" would be true: 
+             Mark that as "wants_more_info: true" if so, otherwise false.
+
+          3. if neither events nor more info about clubs, assume it's general chat. 
+             mark "general_chat" as true in that case, false otherwise.
+
+          Return your answer in strict JSON with these fields only:
           {
-            "wants_events": true/false,
-            "date": "YYYY-MM-DD"
-          }`,
+            "wants_events": boolean,
+            "date": "YYYY-MM-DD" or "",
+            "wants_more_info": boolean,
+            "general_chat": boolean
+          }
+        `,
       },
     ]);
 
@@ -33,12 +43,22 @@ async function extractEventQuery(apiKey, userMessage) {
     if (responseContent.startsWith("{") && responseContent.endsWith("}")) {
       return JSON.parse(responseContent);
     } else {
-      console.error("Invalid GPT response format");
-      return { wants_events: false, date: "" };
+      console.error("Invalid GPT response format.");
+      return {
+        wants_events: false,
+        date: "",
+        wants_more_info: false,
+        general_chat: true,
+      };
     }
   } catch (error) {
     console.error("Error extracting event query:", error.message);
-    return { wants_events: false, date: "" };
+    return {
+      wants_events: false,
+      date: "",
+      wants_more_info: false,
+      general_chat: true,
+    };
   }
 }
 
