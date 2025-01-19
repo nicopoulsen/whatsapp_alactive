@@ -123,7 +123,13 @@ async function processAndSendResponse(senderNumber, userMessage) {
       let responseMessage = "Here are some clubs for you:\n\n";
       if (clubDetails.length > 0) {
         clubDetails.forEach((club) => {
-          responseMessage += `${club.venue_name}\n📍 Location: ${club.municipality}\n🍸 Max Price: £${club.cocktail_max_price}\n\n`;
+          responseMessage += `${club.venue_name}  
+          📍 Location: ${club.municipality}  
+          🏷️ Address: ${club.address}  
+          📮 Postcode: ${club.postcode}  
+          🍸 Cocktail Max Price: ${club.cocktail_max_price}  
+          📱 Instagram Link: ${club.instagram_link}
+          📝 Description: ${club.description || "N/A"}\n\n`;
         });
       } else {
         responseMessage = "Sorry, no matching clubs found.";
@@ -211,8 +217,14 @@ ${club.venue_name}
       const systemPrompt = `
 You are an expert on London's nightlife scene. 
 If the user wants dress code, min age, table pricing, etc for a specific London club, 
-answer from your general knowledge. Also at the end be like " Please refer to the club descriptions above" If you are unsure, politely say so.
-If user asks about something else, answer briefly and steer them back to clubs/events.
+answer from your general knowledge. Also at the end be like " Please refer to the club descriptions above for more information about the club." 
+If you are unsure, politely say so.
+If user asks about something else, answer briefly and steer them back towards our options which are listed below: 
+1. Ask for more clubs
+2. Ask for event reccomendations (on a specific day)
+3. type "RESET" to reset your preferences and start over
+
+
 `;
 
       const gptResponse = await chat.invoke([
@@ -243,7 +255,7 @@ If the user is making small talk, respond politely in 1-2 sentences.
 Then gently steer them back to the main usage: 
 1. Ask for more clubs
 2. Ask for event reccomendations (on a specific day)
-3. Reset your preferences to start over
+3. type "RESET" to reset your preferences and start over
 `;
 
       const gptGeneralResponse = await chat.invoke([
