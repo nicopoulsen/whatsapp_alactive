@@ -1,52 +1,60 @@
-//main file for receiving from webhook, and sending via token
+const functions = require("firebase-functions");
+const { sendWhatsAppMessage } = require("./services/metaApi"); // Sends WhatsApp messages
+const { getChatHistory } = require("./services/firebase"); // Retrieves past messages
+require("dotenv").config();
 
-const functions = require('firebase-functions');
-const { processAndSendResponse } = require('./responseProcessor'); // Custom response handler
-require('dotenv').config();
-
-exports.whatsappWebhook = functions.https.onRequest((req, res) => {
+exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
   try {
-    console.log('Incoming request:', JSON.stringify(req.body, null, 2));
-    console.log('Query parameters:', req.query);
+    console.log("Incoming request:", JSON.stringify(req.body, null, 2));
 
-    if (req.query['hub.verify_token'] === process.env.META_VERIFY_TOKEN) {
-      console.log('Meta verification request received.');
-      return res.status(200).send(req.query['hub.challenge']); // 
+    // Meta webhook verification
+    if (req.query["hub.verify_token"] === process.env.META_VERIFY_TOKEN) {
+      return res.status(200).send(req.query["hub.challenge"]);
     }
 
-    res.status(200).send('EVENT_RECEIVED'); 
+    // Acknowledge the request
+    res.status(200).send("EVENT_RECEIVED");
 
     const entry = req.body?.entry?.[0];
-    if (!entry) {
-      console.error('Invalid payload: Missing "entry" in request body');
-      return; 
-    }
+    if (!entry) return console.error("Missing entry in request body");
 
     const changes = entry?.changes?.[0];
     const messageData = changes?.value?.messages?.[0];
 
-    if (!messageData?.text?.body) {
-      console.error(
-        'Invalid message payload. Missing required fields:',
-        JSON.stringify(req.body, null, 2)
-      );
-      return; 
-    }
+    if (!messageData?.text?.body) return console.error("Invalid message payload");
 
     const userMessage = messageData.text.body.trim();
     const senderNumber = messageData.from;
 
-    console.log(`Received user message: "${userMessage}" from: ${senderNumber}`);
+    console.log(`Received message: "${userMessage}" from: ${senderNumber}`);
 
-    // Process the message and send a response asynchronously
-    processAndSendResponse(senderNumber, userMessage)
-      .then(() => {
-        console.log('Response processed successfully.');
-      })
-      .catch((error) => {
-        console.error('Error processing response:', error.message);
-      });
+    // Check if user has any past messages in Firebase (to determine if it's their first message)
+    const chatHistory = await getChatHistory(senderNumber);
+
+    if (!chatHistory) {
+      // First time user → Send welcome message
+      const welcomeMessage = `
+Hello, I’m Viky, nice to meet you! 🤖✨
+I’m an AI Bot that can help you discover & book **nightclubs, events, and bars** based on your tastes all in one chat! 💃🕺 My goal is to provide you with all the info possible so that you don’t have to search for anything! 🎉
+
+Let’s get started! 🚀
+
+What’s your gender? 👇
+1️⃣ Woman 💃  
+2️⃣ Man 🕺  
+3️⃣ Other 🪩  
+
+What do you need help with? ✨
+1️⃣ Nightclubs 🪩  
+2️⃣ Bar 🍸
+      `;
+
+      await sendWhatsAppMessage(senderNumber, welcomeMessage);
+      console.log("✅ Welcome message sent!");
+    } else {
+      console.log("User has chat history - skipping welcome message.");
+    }
   } catch (error) {
-    console.error('Critical error in webhook handler:', error.stack || error.message);
+    console.error("Critical error in webhook handler:", error.stack || error.message);
   }
 });
