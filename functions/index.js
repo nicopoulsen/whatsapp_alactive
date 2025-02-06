@@ -6,21 +6,16 @@ require("dotenv").config();
 
 exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
   try {
-    console.log("🔹 Incoming request:", JSON.stringify(req.body, null, 2));
-
-    // Meta webhook verification
     if (req.query["hub.verify_token"] === process.env.META_VERIFY_TOKEN) {
       console.log("✅ Meta verification successful!");
       return res.status(200).send(req.query["hub.challenge"]);
     }
 
-    // Acknowledge receipt
+    // send 200
     res.status(200).send("EVENT_RECEIVED");
 
-    // Extract WhatsApp message
     const entry = req.body?.entry?.[0];
     if (!entry) {
-      console.error("❌ ERROR: Missing entry in request body");
       return;
     }
 
@@ -28,18 +23,16 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
     const messageData = changes?.value?.messages?.[0];
 
     if (!messageData?.text?.body) {
-      console.error("❌ ERROR: No text message found in payload");
       return;
     }
 
     const userMessage = messageData.text.body.trim();
     const senderNumber = messageData.from;
 
-    console.log(`📩 Received message: "${userMessage}" from: ${senderNumber}`);
+    console.log(` message: "${userMessage}" from: ${senderNumber}`);
 
-    // **Check Firebase for chat history**
     const chatHistory = await getChatHistory(senderNumber);
-    console.log(" Chat history result:", chatHistory);
+    console.log(" chat history result:", chatHistory);
 
     // **FIRST MESSAGE LOGIC (SEND WELCOME MESSAGE)**
     if (!chatHistory) {
@@ -62,33 +55,24 @@ What do you need help with? ✨
       `;
 
       await sendWhatsAppMessage(senderNumber, welcomeMessage);
-      console.log("✅ Welcome message sent!");
+      console.log("message sent");
 
-      // ✅ Save first user interaction to Firebase
       await saveChatMessage(senderNumber, "system", "Welcome message sent.");
-      console.log("📝 User interaction saved in Firebase!");
 
-      return; // STOP execution here, so the graph doesn't process this.
+      return; // STOP execution here, so the graph doesn't process 
     }
 
     // **All OTHER messages go into the LangGraph pipeline**
     await saveChatMessage(senderNumber, "user", userMessage);
-    console.log("📥 User message saved in Firebase!");
 
-    console.log("🔁 Processing user message through LangGraph...");
     const response = await runGraphFlow(senderNumber, userMessage);
 
-    // Ensure LangGraph returns a response
     const finalResponse = response || "Sorry, I didn’t understand that. Try asking differently!";
 
-    // Send response to user
     await sendWhatsAppMessage(senderNumber, finalResponse);
-    console.log("✅ Response sent:", finalResponse);
 
-    // Save bot's response in Firebase
     await saveChatMessage(senderNumber, "system", finalResponse);
-    console.log("📤 Bot response saved in Firebase!");
   } catch (error) {
-    console.error("🔥 CRITICAL ERROR:", error.stack || error.message);
+    console.error("ERROR:", error.stack || error.message);
   }
 });
